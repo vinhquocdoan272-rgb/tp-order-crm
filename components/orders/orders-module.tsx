@@ -358,6 +358,7 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
     setQuickCustomerSaving(false);
 
     if (result.error || !result.data) {
+      const developerMessage = process.env.NODE_ENV === "development" && result.error?.message ? ` ${result.error.message}` : "";
       if (process.env.NODE_ENV === "development") {
         console.log("QUICK_CUSTOMER_SUPABASE_ERROR", {
           message: result.error?.message,
@@ -367,7 +368,7 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
           payload: insertPayload,
         });
       }
-      setError("Không thể thêm khách hàng. Vui lòng kiểm tra thông tin hoặc quyền truy cập.");
+      setError(`Không thể thêm khách hàng. Vui lòng kiểm tra thông tin hoặc quyền truy cập.${developerMessage}`);
       return;
     }
 
