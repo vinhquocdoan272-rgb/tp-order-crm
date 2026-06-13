@@ -444,14 +444,15 @@ export function InvoicesModule({ role, branchId }: { role: UserRole; branchId: s
           <h1 className="text-2xl font-semibold">Hóa đơn</h1>
           <p className="text-sm text-muted-foreground">Quản lý hóa đơn đầu vào và hóa đơn đầu ra theo đúng luồng kinh doanh.</p>
         </div>
-        <div className="flex gap-2">
-          <Button className="bg-slate-900" onClick={() => void loadData()}>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+          <Button className="w-full bg-slate-900 sm:w-auto" onClick={() => void loadData()}>
             <RefreshCcw className="h-4 w-4" />
             Tải lại
           </Button>
-          <Button disabled={filteredInvoices.length === 0} onClick={() => void exportInvoices()}>
+          <Button className="w-full sm:w-auto" disabled={filteredInvoices.length === 0} onClick={() => void exportInvoices()}>
             <Download className="h-4 w-4" />
-            Xuất Excel
+            <span className="sm:hidden">Excel</span>
+            <span className="hidden sm:inline">Xuất Excel</span>
           </Button>
         </div>
       </div>

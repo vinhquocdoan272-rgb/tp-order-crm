@@ -8,6 +8,7 @@ import { ROLE_LABELS } from "@/lib/constants/app";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { MobileNav } from "@/components/layout/mobile-nav";
 
 const navItems: { href: Route; label: string; icon: LucideIcon }[] = [
   { href: "/dashboard", label: "Tổng quan", icon: Home },
@@ -68,8 +69,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
       </aside>
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white px-4 lg:px-6">
-          <div className="font-semibold lg:hidden">TP Order CRM</div>
+        <MobileNav role={profile.role} fullName={profile.full_name ?? null} email={user.email} />
+        <header className="sticky top-0 z-20 hidden h-16 items-center justify-between border-b bg-white px-4 lg:flex lg:px-6">
+          <div className="font-semibold">TP Order CRM</div>
           <div className="ml-auto flex items-center gap-3">
             {profile.role === "admin" ? <NotificationBell /> : null}
             <div className="hidden text-right sm:block">
@@ -84,7 +86,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             </form>
           </div>
         </header>
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="max-w-full overflow-x-hidden p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

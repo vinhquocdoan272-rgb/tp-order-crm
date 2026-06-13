@@ -140,6 +140,7 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
   });
   const [showQuickCustomer, setShowQuickCustomer] = useState(false);
   const [quickCustomer, setQuickCustomer] = useState<QuickCustomerForm>(initialQuickCustomer);
+  const [quickCustomerSaving, setQuickCustomerSaving] = useState(false);
   const [editing, setEditing] = useState<OrderRow | null>(null);
   const [query, setQuery] = useState("");
   const [branchFilter, setBranchFilter] = useState(role === "branch_manager" ? branchId ?? "" : "");
@@ -297,6 +298,7 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
     setEditing(null);
     setMessage("");
     setShowQuickCustomer(false);
+    setQuickCustomerSaving(false);
     setQuickCustomer(initialQuickCustomer);
     setForm({
       ...initialForm,
@@ -312,45 +314,60 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
   }
 
   async function saveQuickCustomer() {
+    if (quickCustomerSaving) return;
     const payloadBranchId = isFieldStaff ? branchId ?? "" : role === "branch_manager" ? branchId ?? "" : form.branch_id;
     if (isFieldStaff && !payloadBranchId) {
       setError("Tài khoản nhân viên chưa được gán chi nhánh.");
       return;
     }
 
-    const validation = customerSchema.safeParse({
-      ...quickCustomer,
-      address: quickCustomer.address || undefined,
-      note: quickCustomer.note || undefined,
+    const customerPayload = {
+      name: quickCustomer.name.trim(),
+      phone: quickCustomer.phone.trim(),
+      address: quickCustomer.address.trim() || undefined,
+      customer_type: quickCustomer.customer_type,
+      note: quickCustomer.note.trim() || undefined,
       branch_id: payloadBranchId,
       assigned_staff_id: isFieldStaff ? userId : undefined,
-    });
+    };
+
+    const validation = customerSchema.safeParse(customerPayload);
 
     if (!validation.success) {
-      setError(validation.error.issues[0]?.message ?? "Dữ liệu khách hàng chưa hợp lệ");
+      setError(validation.error.issues[0]?.message ?? "Không thể thêm khách hàng. Vui lòng kiểm tra thông tin hoặc quyền truy cập.");
       return;
     }
 
-    setSaving(true);
+    setQuickCustomerSaving(true);
     setError("");
+
+    const insertPayload = {
+      ...validation.data,
+      address: validation.data.address || null,
+      assigned_staff_id: isFieldStaff ? userId : null,
+      note: validation.data.note || null,
+      created_by: userId,
+    };
 
     const result = await supabase
       .from("customers")
-      .insert({
-        ...validation.data,
-        address: validation.data.address || null,
-        assigned_staff_id: isFieldStaff ? userId : null,
-        note: validation.data.note || null,
-        created_by: userId,
-      })
+      .insert(insertPayload)
       .select("id, customer_code, name, phone, branch_id, assigned_staff_id")
       .single();
 
-    setSaving(false);
+    setQuickCustomerSaving(false);
 
     if (result.error || !result.data) {
-      console.error("Supabase customer quick create error:", result.error);
-      setError("Không thể tạo khách hàng. Vui lòng kiểm tra quyền truy cập Supabase RLS.");
+      if (process.env.NODE_ENV === "development") {
+        console.log("QUICK_CUSTOMER_SUPABASE_ERROR", {
+          message: result.error?.message,
+          details: result.error?.details,
+          hint: result.error?.hint,
+          code: result.error?.code,
+          payload: insertPayload,
+        });
+      }
+      setError("Không thể thêm khách hàng. Vui lòng kiểm tra thông tin hoặc quyền truy cập.");
       return;
     }
 
@@ -363,7 +380,7 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
     }));
     setQuickCustomer(initialQuickCustomer);
     setShowQuickCustomer(false);
-    setMessage("Đã thêm khách hàng");
+    setMessage("Đã thêm khách hàng và chọn vào đơn hàng");
   }
 
   function startEdit(order: OrderRow) {
@@ -550,26 +567,28 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-[120px] md:pb-0">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Đơn hàng</h1>
           <p className="text-sm text-muted-foreground">Quản lý đơn dịch vụ, tiến độ xử lý, thanh toán, chi phí và công nợ.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
           {(canManage || isFieldStaff) ? (
-            <Button type="button" onClick={resetForm}>
+            <Button type="button" className="w-full sm:w-auto" onClick={resetForm}>
               <Save className="h-4 w-4" />
-              Thêm đơn hàng
+              <span className="sm:hidden">Thêm đơn</span>
+              <span className="hidden sm:inline">Thêm đơn hàng</span>
             </Button>
           ) : null}
-          <Button className="bg-slate-900" onClick={() => void loadData()}>
+          <Button className="w-full bg-slate-900 sm:w-auto" onClick={() => void loadData()}>
             <RefreshCcw className="h-4 w-4" />
             Tải lại
           </Button>
-          <Button disabled={filteredOrders.length === 0} onClick={() => void exportOrders()}>
+          <Button className="w-full sm:w-auto" disabled={filteredOrders.length === 0} onClick={() => void exportOrders()}>
             <Download className="h-4 w-4" />
-            Xuất Excel
+            <span className="sm:hidden">Excel</span>
+            <span className="hidden sm:inline">Xuất Excel</span>
           </Button>
         </div>
       </div>
@@ -607,7 +626,9 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
                 </div>
                 <Textarea value={quickCustomer.note} onChange={(event) => updateQuickCustomer("note", event.target.value)} placeholder="Ghi chú khách hàng" />
                 <div>
-                  <Button type="button" disabled={saving} onClick={() => void saveQuickCustomer()}>Lưu khách hàng</Button>
+                  <Button type="button" className="w-full sm:w-auto" disabled={quickCustomerSaving} onClick={() => void saveQuickCustomer()}>
+                    {quickCustomerSaving ? "Đang lưu..." : "Lưu khách hàng"}
+                  </Button>
                 </div>
               </div>
             ) : null}
@@ -719,7 +740,52 @@ export function OrdersModule({ role, branchId, userId }: { role: UserRole; branc
 
         {error ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-4 space-y-3 md:hidden">
+          {loading ? (
+            <div className="rounded-md border p-4 text-center text-sm text-muted-foreground">Đang tải danh sách đơn hàng...</div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="rounded-md border p-4 text-center text-sm text-muted-foreground">Chưa có đơn hàng phù hợp</div>
+          ) : filteredOrders.map((order) => (
+            <div key={order.id} className="rounded-md border bg-white p-3 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold">{order.order_code}</div>
+                  <div className="truncate text-muted-foreground">{order.customers?.name ?? "-"} · {order.customers?.phone ?? ""}</div>
+                </div>
+                <Badge>{order.status}</Badge>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-xs text-muted-foreground">Thanh toán</div>
+                  <Badge>{order.payment_status}</Badge>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Tổng tiền</div>
+                  <div className="font-medium">{formatMoney(order.total_amount)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Đã thu</div>
+                  <div className="font-medium">{formatMoney(order.paid_amount)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-muted-foreground">Còn nợ</div>
+                  <div className="font-medium">{formatMoney(order.debt_amount)}</div>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link className="inline-flex h-9 items-center justify-center gap-1 rounded-md bg-slate-900 px-3 text-xs font-medium text-white" href={`/orders/${order.id}` as Route}>
+                  <Eye className="h-3.5 w-3.5" />
+                  Xem
+                </Link>
+                {(canManage || (isFieldStaff && (order.assigned_staff_id === userId || order.created_by === userId))) ? (
+                  <Button className="h-9 px-3" onClick={() => startEdit(order)}>{isFieldStaff ? "Cập nhật" : "Sửa"}</Button>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 hidden overflow-x-auto md:block">
           <table className="w-full min-w-[1680px] text-sm">
             <thead>
               <tr className="border-b text-left text-muted-foreground">

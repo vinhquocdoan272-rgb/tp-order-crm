@@ -272,14 +272,15 @@ export function CustomersModule({ role, branchId, userId }: { role: UserRole; br
           <h1 className="text-2xl font-semibold">Khách hàng</h1>
           <p className="text-sm text-muted-foreground">Quản lý thông tin khách hàng, nhân viên phụ trách và lịch sử đơn hàng.</p>
         </div>
-        <div className="flex gap-2">
-          <Button className="bg-slate-900" onClick={() => void loadData()}>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
+          <Button className="w-full bg-slate-900 sm:w-auto" onClick={() => void loadData()}>
             <RefreshCcw className="h-4 w-4" />
             Tải lại
           </Button>
-          <Button disabled={filteredCustomers.length === 0} onClick={() => void exportCustomers()}>
+          <Button className="w-full sm:w-auto" disabled={filteredCustomers.length === 0} onClick={() => void exportCustomers()}>
             <Download className="h-4 w-4" />
-            Xuất Excel
+            <span className="sm:hidden">Excel</span>
+            <span className="hidden sm:inline">Xuất Excel</span>
           </Button>
         </div>
       </div>
